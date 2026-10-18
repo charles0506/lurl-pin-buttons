@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LURL PIN Buttons
 // @namespace    https://github.com/charles0506/lurl-pin-buttons
-// @version      1.0.1
+// @version      1.0.2
 // @description  在 LURL/MyPPT/load.tw 密碼頁放一排「點一下就填入+送出」的按鈕：輸入你記得的 4 個數字（存在本機），自動展開全部排列組合讓你逐一點選。一次一組，由你手動點，不自動連打。
 // @match        *://lurl.cc/*
 // @match        *://myppt.cc/*
@@ -21,6 +21,31 @@
   const APP_ID = "lurl-pin-buttons";
   const DIGITS_KEY = `${APP_ID}:digits`; // 你記得的數字存本機，不寫進原始碼
   const PRIMARY_KEY = `${APP_ID}:primary`; // 最可能那組，排最前面
+  const TRIED_KEY = `${APP_ID}:tried`; // 猜過的（劃掉用），依頁面分別記錄
+
+  function pageKey() {
+    return location.hostname + location.pathname;
+  }
+  function getTriedMap() {
+    const m = GM_getValue(TRIED_KEY, {});
+    return m && typeof m === "object" ? m : {};
+  }
+  function getTried() {
+    return new Set(getTriedMap()[pageKey()] || []);
+  }
+  function markTried(pw) {
+    const m = getTriedMap();
+    const k = pageKey();
+    const s = new Set(m[k] || []);
+    s.add(pw);
+    m[k] = [...s];
+    GM_setValue(TRIED_KEY, m);
+  }
+  function clearTried() {
+    const m = getTriedMap();
+    delete m[pageKey()];
+    GM_setValue(TRIED_KEY, m);
+  }
 
   // 從本機讀設定。預設為空 —— 第一次用先輸入你記得的 4 個數字。
   function getDigits() {
@@ -142,9 +167,12 @@
     b.type = "button";
     b.textContent = pw;
     b.className = primary ? "lpb-btn lpb-primary" : "lpb-btn";
+    if (getTried().has(pw)) b.classList.add("lpb-tried");
     b.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      markTried(pw); // 先劃掉再送出（送出可能 reload）
+      b.classList.add("lpb-tried");
       fillAndSubmit(pw);
     });
     return b;
@@ -214,11 +242,22 @@
         grid.style.display = open ? "grid" : "none";
         toggle.textContent = open ? `${label} ▴` : `${label} ▾`;
       });
+
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "lpb-clear";
+      clear.textContent = "清除劃掉";
+      clear.addEventListener("click", () => {
+        clearTried();
+        box.remove();
+        build();
+      });
+      box.appendChild(clear);
     }
 
     statusEl = document.createElement("div");
     statusEl.className = "lpb-status";
-    statusEl.textContent = combos.length ? "點一組 = 填入+送出，一次一組" : "先輸入你記得的數字再按「存」";
+    statusEl.textContent = combos.length ? "點一組 = 填入+送出；猜過的會劃掉" : "先輸入你記得的數字再按「存」";
     box.appendChild(statusEl);
 
     document.body.appendChild(box);
@@ -257,6 +296,11 @@
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px;
     }
     #${APP_ID} .lpb-grid .lpb-btn { font-size: 15px; letter-spacing: 2px; padding: 6px 4px; }
+    #${APP_ID} .lpb-tried { opacity: .4; text-decoration: line-through; }
+    #${APP_ID} .lpb-clear {
+      width: 100%; margin-top: 8px; padding: 6px; border-radius: 8px;
+      border: 1px solid #556; background: transparent; color: #aab; cursor: pointer; font-size: 13px;
+    }
     #${APP_ID} .lpb-status { margin-top: 10px; font-size: 12px; color: #9fe; min-height: 16px; }
   `);
 
