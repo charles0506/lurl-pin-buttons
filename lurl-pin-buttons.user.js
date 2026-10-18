@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LURL PIN Buttons
 // @namespace    https://github.com/charles0506/lurl-pin-buttons
-// @version      1.0.0
+// @version      1.0.1
 // @description  在 LURL/MyPPT/load.tw 密碼頁放一排「點一下就填入+送出」的按鈕：輸入你記得的 4 個數字（存在本機），自動展開全部排列組合讓你逐一點選。一次一組，由你手動點，不自動連打。
 // @match        *://lurl.cc/*
 // @match        *://myppt.cc/*
@@ -200,12 +200,12 @@
       toggle.type = "button";
       toggle.className = "lpb-toggle";
       const label = `全部 ${combos.length} 組`;
-      toggle.textContent = `${label} ▾`;
+      toggle.textContent = `${label} ▴`;
       box.appendChild(toggle);
 
       const grid = document.createElement("div");
       grid.className = "lpb-grid";
-      grid.style.display = "none";
+      grid.style.display = "grid"; // 預設展開
       combos.forEach((pw) => grid.appendChild(makeBtn(pw, false)));
       box.appendChild(grid);
 
