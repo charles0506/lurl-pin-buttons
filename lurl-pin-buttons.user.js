@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         LURL PIN Buttons
 // @namespace    https://github.com/charles0506/lurl-pin-buttons
-// @version      1.1.0
-// @description  在 LURL/MyPPT/load.tw 密碼頁放一排「點一下就填入+送出」的按鈕：輸入你記得的 4 個數字（存在本機），自動展開全部排列組合讓你逐一點選。一次一組，由你手動點，不自動連打。
+// @version      1.2.0
+// @description  在 LURL/MyPPT/load.tw/luway 密碼頁放一排「點一下就填入+送出」的按鈕：輸入你記得的 4 個數字（存在本機），自動展開全部排列組合讓你逐一點選。一次一組，由你手動點，不自動連打。
 // @match        *://lurl.cc/*
 // @match        *://myppt.cc/*
 // @match        *://load.tw/*
+// @match        *://*.luway.workers.dev/*
 // @run-at       document-idle
 // @grant        GM_addStyle
 // @grant        GM_getValue
@@ -80,6 +81,8 @@
     if (findPasswordInput()) return; // 還在密碼頁（密碼錯會 reload 回來）→ 尚未成功
     addWin(last.pw);
     clearLast();
+    const panel = document.getElementById(APP_ID);
+    if (panel) panel.remove(); // SPA 解鎖不 reload，移除殘留面板免擋內容
     toast(`✅ 密碼 ${last.pw} 正確，已記錄`);
   }
   function getTriedMap() {
@@ -151,6 +154,7 @@
     for (const selector of [
       "input#password",
       "input#viewPwInput",
+      "input#view-password", // luway.workers.dev
       "input[name='password']",
       "input#pw",
       "input[type='password']",
@@ -184,7 +188,7 @@
       (el.closest && el.closest("#viewPwQuick"));
     const label = (el) => `${el.textContent || ""} ${el.value || ""}`.trim();
     const byText = all.find(
-      (el) => usable(el) && !isHistory(el) && /解密|解鎖|送出|送 出|確認|登入|提交|submit|enter/i.test(label(el))
+      (el) => usable(el) && !isHistory(el) && /解密|解鎖|開啟|觀看|查看|送出|送 出|確認|登入|提交|submit|enter/i.test(label(el))
     );
     if (byText) return byText;
     const bySubmit = all.find((el) => usable(el) && !isHistory(el) && el.type === "submit");
@@ -443,7 +447,11 @@
   setTimeout(detectSuccess, 1200);
 
   build();
-  // 密碼頁可能延後渲染，觀察 DOM 再補建。
-  const mo = new MutationObserver(() => build());
+  // 密碼頁可能延後渲染，觀察 DOM 再補建；
+  // 同時兼容 SPA：密碼欄位被換掉（沒 reload 就解鎖）也要補記成功。
+  const mo = new MutationObserver(() => {
+    build();
+    detectSuccess();
+  });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
